@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning Environment - Synaptic Learn</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Monaco Editor -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-navy: #1a1a2e;
+            --primary-blue: #3b82f6;
+            --dark-blue: #1d4ed8;
+            --text-white: #ffffff;
+            --text-gray: #a0a0a0;
+            --card-bg: rgba(26, 26, 46, 0.8);
+            --success-green: #10b981;
+            --warning-yellow: #f59e0b;
+            --error-red: #ef4444;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-navy) 100%);
+            color: var(--text-white);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .learning-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Left Sidebar - Course Navigation */
+        .course-sidebar {
+            width: 300px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(59, 130, 246, 0.2);
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        
+        .course-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            position: sticky;
+            top: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+        }
+        
+        .course-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .course-progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .course-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-blue), var(--success-green));
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .lessons-list {
+            padding: 10px 0;
+        }
+        
+        .lesson-chapter {
+            margin: 20px 15px 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .lesson-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .lesson-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: var(--primary-blue);
+        }
+        
+        .lesson-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-left-color: var(--primary-blue);
+        }
+        
+        .lesson-item.completed {
+            border-left-color: var(--success-green);
+        }
+        
+        .lesson-status {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(160, 160, 160, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        
+        .lesson-item.completed .lesson-status {
+            background: var(--success-green);
+            color: white;
+        }
+        
+        .lesson-item.active .lesson-status {
+            background: var(--primary-blue);
+            color: white;
+        }
+        
+        .lesson-info {
+            flex: 1;
+        }
+        
+        .lesson-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .lesson-duration {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+        }
+        
+        /* Main Learning Area */
+        .learning-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Top Toolbar */
+        .learning-toolbar {
+            height: 60px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .home-btn {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--primary-blue);
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .home-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .lesson-title-toolbar {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toolbar-btn {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--primary-blue);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toolbar-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .toolbar-btn.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: var(--success-green);
+        }
+        
+        .toolbar-btn.success:hover {
+            background: rgba(16, 185, 129, 0.2);
+        }
+        
+        /* Content Area */
+        .learning-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Left Panel - Lesson Content */
+        .lesson-panel {
+            width: 50%;
+            background: var(--bg-dark);
+            border-right: 1px solid rgba(59, 130, 246, 0.2);
+            overflow-y: auto;
+            padding: 30px;
+        }
+        
+        .lesson-content h1 {
+            color: var(--primary-blue);
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        
+        .lesson-content h2 {
+            color: var(--text-white);
+            font-size: 1.5rem;
+            margin: 25px 0 15px;
+        }
+        
+        .lesson-content h3 {
+            color: var(--primary-blue);
+            font-size: 1.2rem;
+            margin: 20px 0 10px;
+        }
+        
+        .lesson-content p {
+            line-height: 1.7;
+            margin-bottom: 15px;
+            color: var(--text-gray);
+        }
+        
+        .lesson-content ul, .lesson-content ol {
+            margin: 15px 0 15px 20px;
+            color: var(--text-gray);
+        }
+        
+        .lesson-content li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+        
+        .lesson-content pre {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Fira Code', 'Consolas', monospace;
+        }
+        
+        .lesson-content code {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        
+        .code-example {
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 4px solid var(--primary-blue);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .code-example .example-title {
+            color: var(--primary-blue);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        /* Right Panel - Code Editor */
+        .editor-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-navy);
+        }
+        
+        .editor-header {
+            height: 45px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            flex-shrink: 0;
+        }
+        
+        .editor-title {
+            font-weight: 500;
+            color: var(--text-gray);
+        }
+        
+        .editor-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .editor-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .editor-btn:hover {
+            background: var(--dark-blue);
+            transform: translateY(-1px);
+        }
+        
+        .editor-btn.success {
+            background: var(--success-green);
+        }
+        
+        .editor-btn.reset {
+            background: var(--warning-yellow);
+        }
+        
+        .editor-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #monaco-editor {
+            width: 100%;
+            height: 60%;
+        }
+        
+        .output-container {
+            height: 40%;
+            border-top: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .output-header {
+            height: 35px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            flex-shrink: 0;
+        }
+        
+        .output-title {
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+        
+        .clear-btn {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--error-red);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .clear-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .output-content {
+            flex: 1;
+            padding: 15px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .output-line {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .output-line.error {
+            color: var(--error-red);
+        }
+        
+        .output-line.success {
+            color: var(--success-green);
+        }
+        
+        .output-line.info {
+            color: var(--primary-blue);
+        }
+        
+        /* Navigation Controls */
+        .lesson-navigation {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+        
+        .nav-btn {
+            background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(59, 130, 246, 0.4);
+        }
+        
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .nav-btn.complete {
+            background: linear-gradient(135deg, var(--success-green), #059669);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .course-sidebar {
+                width: 250px;
+            }
+            
+            .lesson-panel {
+                width: 100%;
+            }
+            
+            .editor-panel {
+                width: 100%;
+                position: absolute;
+                top: 60px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                display: none;
+            }
+            
+            .editor-panel.active {
+                display: flex;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .course-sidebar {
+                width: 100%;
+                position: absolute;
+                left: -100%;
+                transition: left 0.3s ease;
+                z-index: 1001;
+            }
+            
+            .course-sidebar.open {
+                left: 0;
+            }
+            
+            .lesson-navigation {
+                bottom: 20px;
+                right: 20px;
+            }
+            
+            .nav-btn {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        /* Loading Animation */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Notification System */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-blue);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            max-width: 350px;
+        }
+        
+        .notification.success {
+            background: var(--success-green);
+        }
+        
+        .notification.error {
+            background: var(--error-red);
+        }
+        
+        .notification.warning {
+            background: var(--warning-yellow);
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(300px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="learning-container">
+        <!-- Left Sidebar - Course Navigation -->
+        <div class="course-sidebar" id="course-sidebar">
+            <div class="course-header">
+                <div class="course-title" id="course-title">Loading Course...</div>
+                <div class="course-progress-bar">
+                    <div class="course-progress-fill" id="course-progress-fill"></div>
+                </div>
+            </div>
+            
+            <div class="lessons-list" id="lessons-list">
+                <!-- Lessons will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Main Learning Area -->
+        <div class="learning-main">
+            <!-- Top Toolbar -->
+            <div class="learning-toolbar">
+                <div class="toolbar-left">
+                    <a href="index.html" class="home-btn">
+                        <i class="fas fa-home"></i>
+                        Back to Home
+                    </a>
+                    <div class="lesson-title-toolbar" id="current-lesson-title">Welcome to the Course</div>
+                </div>
+                
+                <div class="toolbar-right">
+                    <button class="toolbar-btn" id="toggle-editor">
+                        <i class="fas fa-code"></i>
+                        Show Editor
+                    </button>
+                    <button class="toolbar-btn" id="save-progress">
+                        <i class="fas fa-save"></i>
+                        Save Progress
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Content Area -->
+            <div class="learning-content">
+                <!-- Left Panel - Lesson Content -->
+                <div class="lesson-panel" id="lesson-panel">
+                    <div class="loading" id="content-loading">
+                        <div class="spinner"></div>
+                        <div id="loading-text">Loading lesson content...</div>
+                        <div style="font-size: 0.9rem; color: #888; margin-top: 10px;" id="loading-detail">Setting up interactive environment...</div>
+                    </div>
+                    
+                    <div class="lesson-content" id="lesson-content" style="display: none;">
+                        <!-- Lesson content will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Right Panel - Code Editor -->
+                <div class="editor-panel" id="editor-panel">
+                    <div class="editor-header">
+                        <div class="editor-title">Code Editor</div>
+                        <div class="editor-actions">
+                            <button class="editor-btn" id="run-code">
+                                <i class="fas fa-play"></i>
+                                Run
+                            </button>
+                            <button class="editor-btn success" id="test-code">
+                                <i class="fas fa-check"></i>
+                                Test
+                            </button>
+                            <button class="editor-btn reset" id="reset-code">
+                                <i class="fas fa-undo"></i>
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="editor-container">
+                        <div id="monaco-editor"></div>
+                        
+                        <div class="output-container">
+                            <div class="output-header">
+                                <div class="output-title">Output</div>
+                                <button class="clear-btn" id="clear-output">
+                                    <i class="fas fa-trash"></i>
+                                    Clear
+                                </button>
+                            </div>
+                            <div class="output-content" id="output-content">
+                                <div class="output-line info">Welcome to the interactive coding environment!</div>
+                                <div class="output-line">Write your Lua code and click "Run" to see the results.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation Controls -->
+    <div class="lesson-navigation">
+        <button class="nav-btn" id="prev-lesson" disabled>
+            <i class="fas fa-chevron-left"></i>
+            Previous
+        </button>
+        <button class="nav-btn" id="next-lesson">
+            Next
+            <i class="fas fa-chevron-right"></i>
+        </button>
+        <button class="nav-btn complete" id="complete-lesson" style="display: none;">
+            <i class="fas fa-check"></i>
+            Complete
+        </button>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="course-content.js"></script>
+    <script src="learning-environment.js"></script>
+</body>
+</html>
